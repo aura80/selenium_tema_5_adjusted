@@ -23,6 +23,14 @@ Keep you project up to date on github : commit and push
 
 Open the new repository(project) with the python editor (Pycharm)
 
+# Install dependencies
+pip install pipenv   -  to facilitate the installation of other libraries
+pipenv install pytest
+pipenv install selenium
+pipenv install webdriver_manager
+pipenv install pytest-html   -   for the .html report
+run pipenv install pytest-xdist  -  for run in parallel
+
 # Description
 
         Hello! My name is Aura and I created this project in order to exercise my automation testing skills using pytest and Selenium frameworks. 
@@ -78,7 +86,7 @@ Open the new repository(project) with the python editor (Pycharm)
         All the tests were generated in the order of their implementation in the 'test_automation_page.py' file.
 
 
-        Firstly, before running, I installed the pipenv library to facilitate the installation of other libraries. The first commands given by me 
+        Firstly I installed the pipenv library to facilitate the installation of other libraries. The first commands given by me 
     using the terminal console were:
             pip install pipenv
             pipenv install pytest
