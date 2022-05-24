@@ -1,10 +1,33 @@
 # selenium_tema_5_adjusted
+basic framework using python, selenium
+# Setup Instructions
+Python Setup
+Download the latest Python version from Python.org.
+Download a Python editor/IDE of your choice. PyCharm in this case.
+# Git Setup
+Create an account on Github.com
+Download GitHub for desktop
+# New Project Setup
+ * Create a new repository in GitHub :
+   * Click New
+   * Complete Repository name
+   * Add a description (Optional)
+   * Check Add a README file (complete this with details about project setup and how to run the tests) 
+   * Add  python .gitignore file
+   * Choose MIT Licence
 
+Open in Github for desktop and clone on your machine: 
+Click Code -> Open with Github for desktop
+Click clone (The new repository appear on your machine)
+Keep you project up to date on github : commit and push
 
+Open the new repository(project) with the python editor (Pycharm)
+
+# Description
 
         Hello! My name is Aura and I created this project in order to exercise my automation testing skills using pytest and Selenium frameworks. 
     I created a new repository named 'selenium_tema_5_adjusted' using the github and I cloned it locally. After that I opened the new project on my 
-    pycharm environment and I created two packages named 'pages' and 'tests'. 
+    Pycharm environment and I created two packages named 'pages' and 'tests'. 
 
         In the package 'pages' I added six python files which contains the classes defined by me to test the content of all the URL's chosen 
     individually. To make my work cleaner and easier, because they were too many, I wrote all the locators from the class AutomTestPracticePage
@@ -62,16 +85,31 @@
             pipenv install selenium
             pipenv install webdriver_manager
             pipenv install pytest-html
+            run pipenv install pytest-xdist         # to run tests in paralel
 
         When all the project was implemented, I run it entirelly, in terminal console, using the command:
                                     pipenv run python -m pytest
-        or:
+    or:
                                     pipenv run python -m pytest -s -v
-        or for one test only, by example:
+    or to run 3 tests in paralel:
+                                    run pipenv run python -m pytest -n 3
+    or to run an entire file:
+                                    pipenv run python -m pytest tests/test_automation_page.py
+    or for one test only, by example:
                                     pipenv run python -m pytest tests/test_automation_page.py::test_get_Links
         
         When all my tests were passed I generated a .html report using:
                                     pipenv run python -m pytest --html=report.html
-        The report.html file can be opened from pycharm Project menu by right clicking it then press Open In, then Browser and then you may choose which
-        browser you want to open the report with.   
+
+        The report.html file can be opened from Pycharm Project menu by right clicking it then press Open In, then Browser and then you may choose which
+    browser you want to open the report with.   
+        
+        To download my project on your machine you have to follow the link https://github.com/aura80/selenium_tema_5_adjusted then click Code and
+    Open with GitHub Desktop --> Clone repository --> URL --> Choose the local path you want to save it locally --> hit Clone --> open it from Pycharm
+
+         Another method is to find the folder where you want to save the project locally and open there a terminal window. In the terminal write the 
+    line below and press enter:
+                                    git clone https://github.com/aura80/selenium_tema_5_adjusted.git
+    After that you can open it from Pycharm.
+ 
 
