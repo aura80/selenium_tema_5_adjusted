@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>report.html</h1>
+    <p>Report generated on 24-May-2022 at 20:33:47 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "1.0.0", "py": "1.11.0", "pytest": "7.1.2"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.22000-SP0</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "2.0.1"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.10.0</td></tr></table>
+    <h2>Summary</h2>
+    <p>21 tests ran in 520.61 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">21 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_getSearch_Click</td>
+          <td class="col-duration">7.35</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+ --- Automation Testing Practice
+ --- https://testautomationpractice.blogspot.com/
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_getTitle</td>
+          <td class="col-duration">6.16</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+ Automation Testing Practice
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_getWindowId</td>
+          <td class="col-duration">7.39</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+The ID of the page Automation Testing Practice is:   CDwindow-578FD866DBC8D888181694B65BBA4EF9
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_getSearch_ByCSS</td>
+          <td class="col-duration">8.89</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+ --- Automation Testing Practice
+ --- https://testautomationpractice.blogspot.com/
+
+No. of search results on &#x27;Automation Testing Practice&#x27; page:  5
+
+Turismo Carretera  -  https://en.wikipedia.org/wiki/Turismo_Carretera
+Turismo Nacional  -  https://en.wikipedia.org/wiki/Turismo_Nacional
+Turismo Pilipina 2008  -  https://en.wikipedia.org/wiki/Turismo_Pilipina_2008
+Turismod  -  https://en.wikipedia.org/wiki/Turismod
+Turism in Argentina  -  https://en.wikipedia.org/wiki/Turism_in_Argentina
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_getSearch_winID</td>
+          <td class="col-duration">26.66</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+   ID   ---   CDwindow-D0D5D4620067F5AF0162A97D5A171392 Title of the parent browser:  Automation Testing Practice
+   ID   ---   CDwindow-38E87DC08541419839764E30C7CC7273 Title of the child browser:  Blogger.com - Create a unique and beautiful blog easily.
+<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F670&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/f18e8465b02bf32ef7e216fddc40a599
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0E0E0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/f18e8465b02bf32ef7e216fddc40a599
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F790&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/f18e8465b02bf32ef7e216fddc40a599<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_getSearch_MuxWinID</td>
+          <td class="col-duration">26.89</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+   ID   ---   CDwindow-E2C981B0CFD947A7DF0F332A51325F3A Title of the parent browser:  Automation Testing Practice
+   ID   ---   CDwindow-834E36A56A63F3FC7E3C85C0D960A13A Title of the child browser:  Blogger.com - Create a unique and beautiful blog easily.
+<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0EDD0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/dbf4b682a1175561285c90824123bf2a
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0EE60&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/dbf4b682a1175561285c90824123bf2a
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F730&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/dbf4b682a1175561285c90824123bf2a<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_getSearch_ByXPATH</td>
+          <td class="col-duration">28.50</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+ --- Automation Testing Practice
+ --- https://testautomationpractice.blogspot.com/
+Elements on the page:  5
+Selenium  ---  https://en.wikipedia.org/wiki/Selenium
+Selenium in biology  ---  https://en.wikipedia.org/wiki/Selenium_in_biology
+Selenium (software)  ---  https://en.wikipedia.org/wiki/Selenium_(software)
+Selenium disulfide  ---  https://en.wikipedia.org/wiki/Selenium_disulfide
+Selenium dioxide  ---  https://en.wikipedia.org/wiki/Selenium_dioxide
+<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0DCC0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/fd5524294320d4e6c409ffdd01c59a72
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0D570&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/fd5524294320d4e6c409ffdd01c59a72
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0E4A0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/fd5524294320d4e6c409ffdd01c59a72<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_getAlert_PopUp</td>
+          <td class="col-duration">25.80</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+ Alert
+The text from the alert click box is:  Click Me
+The text from the alert message box is:  Press a button!
+The status of the alert action is :  You pressed OK!
+<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0DFC0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/bf129e823afa264f0f2494ccfc52fbd8
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0E350&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/bf129e823afa264f0f2494ccfc52fbd8
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0D030&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/bf129e823afa264f0f2494ccfc52fbd8<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_isDate_Picker</td>
+          <td class="col-duration">25.35</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+ The date selected is:    May - 24 - 2022
+Today&#x27;s date: 2022-05-24
+Month:  5 /  Day:  24 /  Year:  2022
+Today&#x27;s current date: 2022-05-24 20:27:29.653810
+05/24/2022
+<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0E500&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/fd255deafc5ba6d5d285fff240601946
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0DE10&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/fd255deafc5ba6d5d285fff240601946
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0DD20&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/fd255deafc5ba6d5d285fff240601946<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_isDate_PickerNew</td>
+          <td class="col-duration">25.81</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0E3B0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/4344a439961b9a222fabce705bf51cbe
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0D900&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/4344a439961b9a222fabce705bf51cbe
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0CFD0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/4344a439961b9a222fabce705bf51cbe<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_get_SignUp</td>
+          <td class="col-duration">26.30</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+Category:  Volunteer Sign Up
+
+Category:  First Name
+Category:  Last Name
+Category:  Phone
+Category:  Country
+Category:  City
+Category:  Email Address
+Category:  Gender
+Category:  What days of the week are you consistently available?
+Category:  Best Time to Contact
+
+Days available: 
+      Tuesday
+      Wednesday
+      Thursday
+<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0D150&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/3703f0f0c45ff17ceb56f60fff349c24
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0EE90&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/3703f0f0c45ff17ceb56f60fff349c24
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0EE60&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/3703f0f0c45ff17ceb56f60fff349c24<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_get_Table</td>
+          <td class="col-duration">23.58</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+There are &#x27;7&#x27; rows, &#x27;4&#x27; columns and a total no. of &#x27;28&#x27; cells in our table
+
+BookName                   Author                   Subject                   Price                   
+--------------------------------------------------------------------------------------
+
+Learn Selenium              Amit              Selenium              300              
+Learn Java                  Mukesh                  Java                  500                  
+Learn JS                    Animesh                    Javascript                    300                    <br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0E410&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/52b3c437c92c33293cbe0f23378e0f39
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F4F0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/52b3c437c92c33293cbe0f23378e0f39
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0D450&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/52b3c437c92c33293cbe0f23378e0f39<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_get_doubleClick</td>
+          <td class="col-duration">26.66</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F550&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/867da0ddfdd1fdbef76ae18dca7eb03e
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F9D0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/867da0ddfdd1fdbef76ae18dca7eb03e
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0E020&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/867da0ddfdd1fdbef76ae18dca7eb03e<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_get_DragAndDrop</td>
+          <td class="col-duration">26.50</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0D2D0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/d75984f1d187111fb4ba53285726e1dc
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0D630&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/d75984f1d187111fb4ba53285726e1dc
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0E080&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/d75984f1d187111fb4ba53285726e1dc<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_get_Slider</td>
+          <td class="col-duration">26.71</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+Initial position of the slider:  {&#x27;x&#x27;: 980, &#x27;y&#x27;: 1376}
+Final position of the slider:  {&#x27;x&#x27;: 1128, &#x27;y&#x27;: 1376}
+<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F8B0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/57f672640d9c834c0d991d1afb902f4e
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0DE10&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/57f672640d9c834c0d991d1afb902f4e
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0E9B0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/57f672640d9c834c0d991d1afb902f4e<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_get_Navi</td>
+          <td class="col-duration">34.13</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0FB50&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/591727daecb0deb6269c4f066f937c22
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0EF50&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/591727daecb0deb6269c4f066f937c22
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F2E0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/591727daecb0deb6269c4f066f937c22<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_get_Links</td>
+          <td class="col-duration">53.74</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+Total no. of img on amazon:  237
+Link 0 ok:  https://images-na.ssl-images-amazon.com/images/G/01/gno/sprites/nav-sprite-global-1x-hm-dsk-reorg._CB405937547_.png
+Link 1 ok:  https://m.media-amazon.com/images/I/61TD5JLGhIL._SX3000_.jpg
+Link 2 ok:  https://m.media-amazon.com/images/I/71qid7QFWJL._SX3000_.jpg
+Link 3 ok:  https://m.media-amazon.com/images/I/61-8rBAD68L._SX3000_.jpg
+Link 4 ok:  https://m.media-amazon.com/images/I/61jovjd+f9L._SX3000_.jpg
+Link 5 ok:  https://m.media-amazon.com/images/I/61BvxKSpy3L._SX3000_.jpg
+Link 6 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2021/June/Fuji_Quad_Headset_1x._SY116_CB667159060_.jpg
+Link 7 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2021/June/Fuji_Quad_Keyboard_1x._SY116_CB667159063_.jpg
+Link 8 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2021/June/Fuji_Quad_Mouse_1x._SY116_CB667159063_.jpg
+Link 9 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2021/June/Fuji_Quad_Chair_1x._SY116_CB667159060_.jpg
+Link 10 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2019/February/Dashboard/computer120x._SY85_CB468850970_.jpg
+Link 11 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2019/August/DashboardCard/PS4_120X._SY85_CB438749318_.jpg
+Link 12 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2019/February/Dashboard/Baby120X._SY85_CB468850882_.jpg
+Link 13 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2019/February/Dashboard/Toys120X._SY85_CB468851693_.jpg
+Link 14 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2022/February/DashboardCards/GW_CONS_AUS_HPC_HPCEssentials_CatCard_Desktop1x._SY304_CB627424361_.jpg
+Link 15 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2020/October/Fuji_D2_45M_en_US_1x._CB418309979_.jpg
+Link 16 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Events/2022/FathersDay/Fuji_FathersDay22_Dash_1X._SY304_CB636880260_.jpg
+Link 17 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2020/May/Dashboard/Fuji_Dash_Electronics_1x._SY304_CB432774322_.jpg
+Link 18 ok:  https://m.media-amazon.com/images/I/41-YcSatzAL._AC_SY230_.jpg
+Link 19 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2020/May/Dashboard/Fuji_Dash_PC_1x._SY304_CB431800965_.jpg
+Link 20 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2022/February/DashboardCards/Fuji_dash_dress_1X._SY304_CB626369146_.jpg
+Link 21 ok:  https://m.media-amazon.com/images/I/81p91cnIFEL._AC_SY200_.jpg
+Link 22 ok:  https://m.media-amazon.com/images/I/81kKEudGqXL._AC_SY200_.jpg
+Link 23 ok:  https://m.media-amazon.com/images/I/61duFTIyRVL._AC_SY200_.jpg
+Link 24 ok:  https://m.media-amazon.com/images/I/61mpMH5TzkL._AC_SY200_.jpg
+Link 25 ok:  https://m.media-amazon.com/images/I/61GpY38PAWL._AC_SY200_.jpg
+Link 26 ok:  https://m.media-amazon.com/images/I/31J6e8a9GhS._AC_SY200_.jpg
+Link 27 ok:  https://m.media-amazon.com/images/I/91RL+MhTWbL._AC_SY200_.jpg
+Link 28 ok:  https://m.media-amazon.com/images/I/81R+mWbSNAL._AC_SY200_.jpg
+Link 29 ok:  https://m.media-amazon.com/images/I/91cqHb9t32L._AC_SY200_.jpg
+Link 30 ok:  https://m.media-amazon.com/images/I/613CgO8IZGL._AC_SY200_.jpg
+Link 31 ok:  https://m.media-amazon.com/images/I/61PwMWg2e1L._AC_SY200_.jpg
+Link 32 ok:  https://m.media-amazon.com/images/I/410w-tBYiZS._AC_SY200_.jpg
+Link 33 ok:  https://m.media-amazon.com/images/I/81SvhwIiyAL._AC_SY200_.jpg
+Link 34 ok:  https://m.media-amazon.com/images/I/61dPLkN4poL._AC_SY200_.jpg
+Link 35 ok:  https://m.media-amazon.com/images/I/61i0CV-tKpL._AC_SY200_.jpg
+Link 36 ok:  https://m.media-amazon.com/images/I/4177WgaTtpL._AC_SY200_.jpg
+Link 37 ok:  https://m.media-amazon.com/images/I/71xp4UIyJhL._AC_SY200_.jpg
+Link 38 ok:  https://m.media-amazon.com/images/I/71m3KX4U+OL._AC_SY200_.jpg
+Link 39 ok:  https://m.media-amazon.com/images/I/814hfDfbPWL._AC_SY200_.jpg
+Link 40 ok:  https://m.media-amazon.com/images/I/61f8iAbpw3L._AC_SY200_.jpg
+Link 41 ok:  https://m.media-amazon.com/images/I/51f2hkWjTlL._AC_SY200_.jpg
+Link 42 ok:  https://m.media-amazon.com/images/I/81d0pk3xOiS._AC_SY200_.jpg
+Link 43 ok:  https://m.media-amazon.com/images/I/61OQP2+yqML._AC_SY200_.jpg
+Link 44 ok:  https://m.media-amazon.com/images/I/61RnzuOIOoL._AC_SY200_.jpg
+Link 45 ok:  https://m.media-amazon.com/images/I/91JfTO6scIL._AC_SY200_.jpg
+Link 46 ok:  https://m.media-amazon.com/images/I/51GyepFSzjL._AC_SY200_.jpg
+Link 47 ok:  https://m.media-amazon.com/images/I/71t5WWhtLTL._AC_SY200_.jpg
+Link 48 ok:  https://m.media-amazon.com/images/I/518qbhOvLlL._AC_SY200_.jpg
+Link 49 ok:  https://m.media-amazon.com/images/I/71CZvr3zu+L._AC_SY200_.jpg
+Link 50 ok:  https://m.media-amazon.com/images/I/21SPDoiRuGL._AC_SY200_.jpg
+Link 51 ok:  https://m.media-amazon.com/images/I/91cqEsyjd-L._AC_SY200_.jpg
+Link 52 ok:  https://m.media-amazon.com/images/I/81EVdWdmOKL._AC_SY200_.jpg
+Link 53 ok:  https://m.media-amazon.com/images/I/8144Vic9C5L._AC_SY200_.jpg
+Link 54 ok:  https://m.media-amazon.com/images/I/81t-IstQ+ZL._AC_SY200_.jpg
+Link 55 ok:  https://m.media-amazon.com/images/I/811ftjOO5FL._AC_SY200_.jpg
+Link 56 ok:  https://m.media-amazon.com/images/I/81vpsIs58WL._AC_SY200_.jpg
+Link 57 ok:  https://m.media-amazon.com/images/I/81a5KHEkwQL._AC_SY200_.jpg
+Link 58 ok:  https://m.media-amazon.com/images/I/81nzxODnaJL._AC_SY200_.jpg
+Link 59 ok:  https://m.media-amazon.com/images/I/81v6X23UlML._AC_SY200_.jpg
+Link 60 ok:  https://m.media-amazon.com/images/I/81FxtWFGiiL._AC_SY200_.jpg
+Link 61 ok:  https://m.media-amazon.com/images/I/81e4jgomhKL._AC_SY200_.jpg
+Link 62 ok:  https://m.media-amazon.com/images/I/71hZD6S5MmL._AC_SY200_.jpg
+Link 63 ok:  https://m.media-amazon.com/images/I/81k1b6u4YvL._AC_SY200_.jpg
+Link 64 ok:  https://m.media-amazon.com/images/I/81yYivG7NzL._AC_SY200_.jpg
+Link 65 ok:  https://m.media-amazon.com/images/I/91HHxxtA1wL._AC_SY200_.jpg
+Link 66 ok:  https://m.media-amazon.com/images/I/51o4b5AdNLL._AC_SY200_.jpg
+Link 67 ok:  https://m.media-amazon.com/images/I/91EBoiR3+eL._AC_SY200_.jpg
+Link 68 ok:  https://m.media-amazon.com/images/I/81m6us1KNaL._AC_SY200_.jpg
+Link 69 ok:  https://m.media-amazon.com/images/I/61zGOvBSgAL._AC_SY200_.jpg
+Link 70 ok:  https://m.media-amazon.com/images/I/711c-uf6AFL._AC_SY200_.jpg
+Link 71 ok:  https://m.media-amazon.com/images/I/81QWIhOnoML._AC_SY200_.jpg
+Link 72 ok:  https://m.media-amazon.com/images/I/81vTTD9oyjL._AC_SY200_.jpg
+Link 73 ok:  https://m.media-amazon.com/images/I/91U+WcDQfkL._AC_SY200_.jpg
+Link 74 ok:  https://m.media-amazon.com/images/I/71eWYxkogRL._AC_SY200_.jpg
+Link 75 ok:  https://m.media-amazon.com/images/I/81UBpZdE+FL._AC_SY200_.jpg
+Link 76 ok:  https://m.media-amazon.com/images/I/91oY57N3W8L._AC_SY200_.jpg
+Link 77 ok:  https://m.media-amazon.com/images/I/71aLultW5EL._AC_SY200_.jpg
+Link 78 ok:  https://m.media-amazon.com/images/I/718Ak9PDjEL._AC_SY200_.jpg
+Link 79 ok:  https://m.media-amazon.com/images/I/91pdllYEUfL._AC_SY200_.jpg
+Link 80 ok:  https://m.media-amazon.com/images/I/81qvComM2kL._AC_SY200_.jpg
+Link 81 ok:  https://m.media-amazon.com/images/I/71Cf4vcWoeL._AC_SY175_.jpg
+Link 82 ok:  https://m.media-amazon.com/images/I/71Cf4vcWoeL._AC_SY55_.jpg
+Link 83 ok:  https://m.media-amazon.com/images/I/61tDaOb9cpS._AC_SY55_.jpg
+Link 84 ok:  https://m.media-amazon.com/images/I/81WyIjhXqjL._AC_SY55_.jpg
+Link 85 ok:  https://m.media-amazon.com/images/I/71o0fRnLUFL._AC_SY55_.jpg
+Link 86 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2021/September/DashboardCards/Fuji_Dash_Toys_1X._SY304_CB639759658_.jpg
+Link 87 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2021/June/Fuji_Quad_Apparel_1x._SY116_CB667159060_.jpg
+Link 88 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2021/June/Fuji_Quad_Hat_1x._SY116_CB667159060_.jpg
+Link 89 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2021/June/Fuji_Quad_Figure_1x._SY116_CB667159060_.jpg
+Link 90 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2021/June/Fuji_Quad_Mug_1x._SY116_CB667159063_.jpg
+Link 91 ok:  https://m.media-amazon.com/images/I/71ljjF6RA1L._AC_SY175_.jpg
+Link 92 ok:  https://m.media-amazon.com/images/I/71ljjF6RA1L._AC_SY55_.jpg
+Link 93 ok:  https://m.media-amazon.com/images/I/811TcLCLSbL._AC_SY55_.jpg
+Link 94 ok:  https://m.media-amazon.com/images/I/81-x2Z9OrSL._AC_SY55_.jpg
+Link 95 ok:  https://m.media-amazon.com/images/I/71nDX36Y9UL._AC_SY55_.jpg
+Link 96 ok:  https://m.media-amazon.com/images/I/710u8FaccsL._AC_SY200_.jpg
+Link 97 ok:  https://m.media-amazon.com/images/I/91FIbLIsttL._AC_SY200_.jpg
+Link 98 ok:  https://m.media-amazon.com/images/I/816IXnvxmML._AC_SY200_.jpg
+Link 99 ok:  https://m.media-amazon.com/images/I/61EKpb7tBdL._AC_SY200_.jpg
+Link 100 ok:  https://m.media-amazon.com/images/I/81l2bK1kAcL._AC_SY200_.jpg
+Link 101 ok:  https://m.media-amazon.com/images/I/81yam08hJVL._AC_SY200_.jpg
+Link 102 ok:  https://m.media-amazon.com/images/I/71kh2PexhzL._AC_SY200_.jpg
+Link 103 ok:  https://m.media-amazon.com/images/I/71znVolTx5L._AC_SY200_.jpg
+Link 104 ok:  https://m.media-amazon.com/images/I/61exdrhPnkL._AC_SY200_.jpg
+Link 105 ok:  https://m.media-amazon.com/images/I/61P5KLFSR+L._AC_SY200_.jpg
+Link 106 ok:  https://m.media-amazon.com/images/I/31yGL1k8LaL._AC_SY200_.jpg
+Link 107 ok:  https://m.media-amazon.com/images/I/81p+iLI3LwL._AC_SY200_.jpg
+Link 108 ok:  https://m.media-amazon.com/images/I/61qUj+6NF2S._AC_SY200_.jpg
+Link 109 ok:  https://m.media-amazon.com/images/I/912IDUOaQdL._AC_SY200_.jpg
+Link 110 ok:  https://m.media-amazon.com/images/I/71acSwpvBdL._AC_SY200_.jpg
+Link 111 ok:  https://m.media-amazon.com/images/I/61K6cQhw4EL._AC_SY200_.jpg
+Link 112 ok:  https://m.media-amazon.com/images/I/81WHR1fO6vL._AC_SY200_.jpg
+Link 113 ok:  https://m.media-amazon.com/images/I/71GgtvscrqL._AC_SY200_.jpg
+Link 114 ok:  https://m.media-amazon.com/images/I/71dbPMyqnSL._AC_SY200_.jpg
+Link 115 ok:  https://m.media-amazon.com/images/I/51Sl+vr2WZL._AC_SY200_.jpg
+Link 116 ok:  https://m.media-amazon.com/images/I/51TN9MKCOiS._AC_SY200_.jpg
+Link 117 ok:  https://m.media-amazon.com/images/I/71cCErDkukS._AC_SY200_.jpg
+Link 118 ok:  https://m.media-amazon.com/images/I/61qrmiJ9ytL._AC_SY200_.jpg
+Link 119 ok:  https://m.media-amazon.com/images/I/71OMPXoZIqL._AC_SY200_.jpg
+Link 120 ok:  https://m.media-amazon.com/images/I/71Y7owPctuL._AC_SY200_.jpg
+Link 121 ok:  https://m.media-amazon.com/images/I/71FkApioUzL._AC_SY200_.jpg
+Link 122 ok:  https://m.media-amazon.com/images/I/614cgoamCFL._AC_SY200_.jpg
+Link 123 ok:  https://m.media-amazon.com/images/I/61IueiL1j0L._AC_SY200_.jpg
+Link 124 ok:  https://m.media-amazon.com/images/I/81nSd9+fPwL._AC_SY200_.jpg
+Link 125 ok:  https://m.media-amazon.com/images/I/81RTBX6w94L._AC_SY200_.jpg
+Link 126 ok:  https://m.media-amazon.com/images/I/71Nj0vM0ANL._AC_SY200_.jpg
+Link 127 ok:  https://m.media-amazon.com/images/I/61EhQgsyFIL._AC_SY200_.jpg
+Link 128 ok:  https://m.media-amazon.com/images/I/71CIb2DlZWL._AC_SY200_.jpg
+Link 129 ok:  https://m.media-amazon.com/images/I/81Z9IR3sycL._AC_SY200_.jpg
+Link 130 ok:  https://m.media-amazon.com/images/I/81vSvqlpaCS._AC_SY200_.jpg
+Link 131 ok:  https://m.media-amazon.com/images/I/81qIx5bItGL._AC_SY200_.jpg
+Link 132 ok:  https://m.media-amazon.com/images/I/81gs+o4aKgL._AC_SY200_.jpg
+Link 133 ok:  https://m.media-amazon.com/images/I/91NCBKatgpL._AC_SY200_.jpg
+Link 134 ok:  https://m.media-amazon.com/images/I/A17rF8ZjiiL._AC_SY200_.jpg
+Link 135 ok:  https://m.media-amazon.com/images/I/812FrQVQPyL._AC_SY200_.jpg
+Link 136 ok:  https://m.media-amazon.com/images/I/61RJqWVnMIS._AC_SY200_.jpg
+Link 137 ok:  https://m.media-amazon.com/images/I/61ox1Eh9FaL._AC_SY200_.jpg
+Link 138 ok:  https://m.media-amazon.com/images/I/71JS7WI-iCL._AC_SY200_.jpg
+Link 139 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2021/September/DashboardCards/Fuji_Desktop_Dash_Kindle_1x._SY304_CB639752818_.jpg
+Link 140 ok:  https://m.media-amazon.com/images/I/81Quaej+AmL._AC_SY175_.jpg
+Link 141 ok:  https://m.media-amazon.com/images/I/81Quaej+AmL._AC_SY55_.jpg
+Link 142 ok:  https://m.media-amazon.com/images/I/81S-xWVH8kL._AC_SY55_.jpg
+Link 143 ok:  https://m.media-amazon.com/images/I/81gWQOAReLL._AC_SY55_.jpg
+Link 144 ok:  https://m.media-amazon.com/images/I/71wW3feC4lL._AC_SY55_.jpg
+Link 145 ok:  https://m.media-amazon.com/images/I/61MzTQDBTXL._AC_SY175_.jpg
+Link 146 ok:  https://m.media-amazon.com/images/I/61MzTQDBTXL._AC_SY55_.jpg
+Link 147 ok:  https://m.media-amazon.com/images/I/71rEw4y8VSL._AC_SY55_.jpg
+Link 148 ok:  https://m.media-amazon.com/images/I/81eBWd1nUTL._AC_SY55_.jpg
+Link 149 ok:  https://m.media-amazon.com/images/I/719c1Ug5xVL._AC_SY55_.jpg
+Link 150 ok:  https://m.media-amazon.com/images/I/71FuI8YvCNL._AC_SY175_.jpg
+Link 151 ok:  https://m.media-amazon.com/images/I/71FuI8YvCNL._AC_SY55_.jpg
+Link 152 ok:  https://m.media-amazon.com/images/I/511eMQMa7JL._AC_SY55_.jpg
+Link 153 ok:  https://m.media-amazon.com/images/I/51l0rAIYSmL._AC_SY55_.jpg
+Link 154 ok:  https://m.media-amazon.com/images/I/61lVL+eGe6L._AC_SY55_.jpg
+Link 155 ok:  https://m.media-amazon.com/images/I/819-i1Sy7ML._AC_SY200_.jpg
+Link 156 ok:  https://m.media-amazon.com/images/I/8161Wp4qq9L._AC_SY200_.jpg
+Link 157 ok:  https://m.media-amazon.com/images/I/81iEXbFlegL._AC_SY200_.jpg
+Link 158 ok:  https://m.media-amazon.com/images/I/71-pI1YXACL._AC_SY200_.jpg
+Link 159 ok:  https://m.media-amazon.com/images/I/71tjzN4QkCL._AC_SY200_.jpg
+Link 160 ok:  https://m.media-amazon.com/images/I/71S5Oi3fHQL._AC_SY200_.jpg
+Link 161 ok:  https://m.media-amazon.com/images/I/81AIQOW17aS._AC_SY200_.jpg
+Link 162 ok:  https://m.media-amazon.com/images/I/61poLHUBXNL._AC_SY200_.jpg
+Link 163 ok:  https://m.media-amazon.com/images/I/81EKmfVj9PL._AC_SY200_.jpg
+Link 164 ok:  https://m.media-amazon.com/images/I/71T-bHkhcDL._AC_SY200_.jpg
+Link 165 ok:  https://m.media-amazon.com/images/I/71U7iRz4X+L._AC_SY200_.jpg
+Link 166 ok:  https://m.media-amazon.com/images/I/71QUtf6spWL._AC_SY200_.jpg
+Link 167 ok:  https://m.media-amazon.com/images/I/71dfXgFTeIL._AC_SY200_.jpg
+Link 168 ok:  https://m.media-amazon.com/images/I/61tJ1lpR+3L._AC_SY200_.jpg
+Link 169 ok:  https://m.media-amazon.com/images/I/81spSdLPgLL._AC_SY200_.jpg
+Link 170 ok:  https://m.media-amazon.com/images/I/51BBUmANTUL._AC_SY200_.jpg
+Link 171 ok:  https://m.media-amazon.com/images/I/51A2tnapzKL._AC_SY200_.jpg
+Link 172 ok:  https://m.media-amazon.com/images/I/81+okm4IpfL._AC_SY200_.jpg
+Link 173 ok:  https://m.media-amazon.com/images/I/81IbsvjLolL._AC_SY200_.jpg
+Link 174 ok:  https://m.media-amazon.com/images/I/81xV+D1OkGL._AC_SY200_.jpg
+Link 175 ok:  https://m.media-amazon.com/images/I/81lebBFwh1L._AC_SY200_.jpg
+Link 176 ok:  https://m.media-amazon.com/images/I/714XCyNu+FL._AC_SY200_.jpg
+Link 177 ok:  https://m.media-amazon.com/images/I/91YNJM4oyhL._AC_SY200_.jpg
+Link 178 ok:  https://m.media-amazon.com/images/I/71ZzKSXSrJL._AC_SY200_.jpg
+Link 179 ok:  https://m.media-amazon.com/images/I/713ALTiu+5L._AC_SY200_.jpg
+Link 180 ok:  https://m.media-amazon.com/images/I/9183-yC7YaL._AC_SY200_.jpg
+Link 181 ok:  https://m.media-amazon.com/images/I/81X8PZ2kU1L._AC_SY200_.jpg
+Link 182 ok:  https://m.media-amazon.com/images/I/71aYQI5JwBL._AC_SY200_.jpg
+Link 183 ok:  https://m.media-amazon.com/images/I/71dSl3Q0rEL._AC_SY200_.jpg
+Link 184 ok:  https://m.media-amazon.com/images/I/91dFL7Fkz3L._AC_SY200_.jpg
+Link 185 ok:  https://m.media-amazon.com/images/I/81-RlWFdRrL._AC_SY200_.jpg
+Link 186 ok:  https://m.media-amazon.com/images/I/81ZB62prn-L._AC_SY200_.jpg
+Link 187 ok:  https://m.media-amazon.com/images/I/71KUNPdl7dL._AC_SY200_.jpg
+Link 188 ok:  https://m.media-amazon.com/images/I/51TQ4+rSd7L._AC_SY200_.jpg
+Link 189 ok:  https://m.media-amazon.com/images/I/814iawRsybL._AC_SY200_.jpg
+Link 190 ok:  https://m.media-amazon.com/images/I/71msxzqxUbL._AC_SY200_.jpg
+Link 191 ok:  https://m.media-amazon.com/images/I/71qeNzidkkL._AC_SY200_.jpg
+Link 192 ok:  https://m.media-amazon.com/images/I/81n4ilutaJL._AC_SY200_.jpg
+Link 193 ok:  https://m.media-amazon.com/images/I/71KWM+gJoUL._AC_SY200_.jpg
+Link 194 ok:  https://m.media-amazon.com/images/I/81EN5QOijFL._AC_SY200_.jpg
+Link 195 ok:  https://m.media-amazon.com/images/I/8101nm8n7jL._AC_SY200_.jpg
+Link 196 ok:  https://m.media-amazon.com/images/I/91c6YQrtQLL._AC_SY200_.jpg
+Link 197 ok:  https://m.media-amazon.com/images/I/81vBLreSEOL._AC_SY200_.jpg
+Link 198 ok:  https://m.media-amazon.com/images/I/71ygLu2o0OL._AC_SY175_.jpg
+Link 199 ok:  https://m.media-amazon.com/images/I/71ygLu2o0OL._AC_SY55_.jpg
+Link 200 ok:  https://m.media-amazon.com/images/I/81IC5+bWDgL._AC_SY55_.jpg
+Link 201 ok:  https://m.media-amazon.com/images/I/61hqjITqd5L._AC_SY55_.jpg
+Link 202 ok:  https://m.media-amazon.com/images/I/71IHpHk2-EL._AC_SY55_.jpg
+Link 203 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2021/September/DashboardCards/Fuji_Dash_Pets_1X._SY304_CB639746743_.jpg
+Link 204 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2020/May/Dashboard/Fuji_Dash_Laptops_379x304_1X_en_US._SY304_CB418608471_.jpg
+Link 205 ok:  https://images-na.ssl-images-amazon.com/images/G/01/AmazonExports/Fuji/2021/September/DashboardCards/Fuji_Dash_SmartWatch_1X._SY304_CB639922137_.jpg
+Link 206 ok:  https://m.media-amazon.com/images/I/61ASu-5HgBL._AC_SY200_.jpg
+Link 207 ok:  https://m.media-amazon.com/images/I/41sh8GLCvcL._AC_SY200_.jpg
+Link 208 ok:  https://m.media-amazon.com/images/I/71cZ16Pb+OL._AC_SY200_.jpg
+Link 209 ok:  https://m.media-amazon.com/images/I/61a2i+QgVuS._AC_SY200_.jpg
+Link 210 ok:  https://m.media-amazon.com/images/I/61ekV91t9qL._AC_SY200_.jpg
+Link 211 ok:  https://m.media-amazon.com/images/I/51m2Qp8r1GL._AC_SY200_.jpg
+Link 212 ok:  https://m.media-amazon.com/images/I/51vTNmlvNmL._AC_SY200_.jpg
+Link 213 ok:  https://m.media-amazon.com/images/I/71EYd6CcAEL._AC_SY200_.jpg
+Link 214 ok:  https://m.media-amazon.com/images/I/51RbOvXSVeL._AC_SY200_.jpg
+Link 215 ok:  https://m.media-amazon.com/images/I/71H5-BKWlcS._AC_SY200_.jpg
+Link 216 ok:  https://m.media-amazon.com/images/I/81NJXuwCwLL._AC_SY200_.jpg
+Link 217 ok:  https://m.media-amazon.com/images/I/81yq3-yHIHL._AC_SY200_.jpg
+Link 218 ok:  https://m.media-amazon.com/images/I/71cmVrGZWtL._AC_SY200_.jpg
+Link 219 ok:  https://m.media-amazon.com/images/I/71MRvjESS9L._AC_SY200_.jpg
+Link 220 ok:  https://m.media-amazon.com/images/I/61UBHYmIKSL._AC_SY200_.jpg
+Link 221 ok:  https://m.media-amazon.com/images/I/710+kynvMpL._AC_SY200_.jpg
+Link 222 ok:  https://m.media-amazon.com/images/I/514MtnRbN6L._AC_SY200_.jpg
+Link 223 ok:  https://m.media-amazon.com/images/I/91kGgNniuyL._AC_SY200_.jpg
+Link 224 ok:  https://m.media-amazon.com/images/I/61OU2dEaVDL._AC_SY200_.jpg
+Link 225 ok:  https://m.media-amazon.com/images/I/61PE+NUAtwL._AC_SY200_.jpg
+Link 226 ok:  https://m.media-amazon.com/images/I/51VgAeyA7HL._AC_SY200_.jpg
+Link 227 ok:  https://m.media-amazon.com/images/I/81k5Lo6i-eL._AC_SY200_.jpg
+Link 228 ok:  https://m.media-amazon.com/images/I/71KtGV7gajL._AC_SY200_.jpg
+Link 229 ok:  https://m.media-amazon.com/images/I/81Ggz0Y9KJL._AC_SY200_.jpg
+Link 230 ok:  https://m.media-amazon.com/images/I/71-KABr9wdS._AC_SY200_.jpg
+Link 231 ok:  https://m.media-amazon.com/images/I/71c8vJEavTL._AC_SY200_.jpg
+Link 232 ok:  https://m.media-amazon.com/images/I/61cFRWgNoSL._AC_SY200_.jpg
+Link 233 ok:  https://m.media-amazon.com/images/I/71EWj6kalgS._AC_SY200_.jpg
+Link 234 ok:  https://m.media-amazon.com/images/I/81+mcHomgPL._AC_SY200_.jpg
+Link 235 ok:  https://m.media-amazon.com/images/I/712yxjLl-VL._AC_SY200_.jpg
+Link 236 ok:  https://images-na.ssl-images-amazon.com/images/G/01/personalization/ybh/loading-4x-gray._CB485916920_.gif
+Total no. of broken amazon links:  0
+Total no. of ok amazon links:  237
+<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0FFA0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/12c68e86e4c7dd21862b7d7a345f1df8
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0DE40&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/12c68e86e4c7dd21862b7d7a345f1df8
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0D630&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/12c68e86e4c7dd21862b7d7a345f1df8<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_get_InfoLogin</td>
+          <td class="col-duration">22.08</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+Action:  Log in
+
+ --- nopCommerce demo store
+ --- https://demo.nopcommerce.com/
+ --- &lt;html lang=&quot;en&quot; dir=&quot;ltr&quot; class=&quot;html-home-page&quot;&gt;&lt;head&gt;&lt;title&gt;nopCommerce demo store&lt;/title&gt;&lt;meta charset=&quot;UTF-8&quot;&gt;&lt;meta name=&quot;description&quot; content=&quot;nopCommerce is the open-source eCommerce solution. nopCommerce is available for free. It has everything you need to get started in selling physical and digital goods over the internet.&quot;&gt;&lt;meta name=&quot;keywords&quot; content=&quot;open source ecommerce,open-source ecommerce,C# shopping cart,C#,asp.net e-commerce storefront,asp.net web store,.net ecommerce,C# shopping cart,shopping cart,e-commerce&quot;&gt;&lt;meta name=&quot;generator&quot; content=&quot;nopCommerce&quot;&gt;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;&lt;link rel=&quot;stylesheet&quot; href=&quot;/css/Homepage.Head.styles.css?v=sJef6bO9lRHm1tuNhzK5ikdHRZs&quot;&gt;&lt;/head&gt;&lt;body&gt;&lt;div class=&quot;ajax-loading-block-window&quot; style=&quot;display:none&quot;&gt;&lt;/div&gt;&lt;div id=&quot;dialog-notifications-success&quot; title=&quot;Notification&quot; style=&quot;display:none&quot;&gt;&lt;/div&gt;&lt;div id=&quot;dialog-notifications-error&quot; title=&quot;Error&quot; style=&quot;display:none&quot;&gt;&lt;/div&gt;&lt;div id=&quot;dialog-notifications-warning&quot; title=&quot;Warning&quot; style=&quot;display:none&quot;&gt;&lt;/div&gt;&lt;div id=&quot;bar-notification&quot; class=&quot;bar-notification-container&quot; data-close=&quot;Close&quot;&gt;&lt;/div&gt;&lt;!--[if lte IE 8]&gt;&lt;div style=clear:both;height:59px;text-align:center;position:relative&gt;&lt;a href=http://www.microsoft.com/windows/internet-explorer/default.aspx target=_blank&gt; &lt;img src=/Themes/DefaultClean/Content/images/ie_warning.jpg height=42 width=820 alt=&quot;You are using an outdated browser. For a faster, safer browsing experience, upgrade for free today.&quot;&gt; &lt;/a&gt;&lt;/div&gt;&lt;![endif]--&gt;&lt;div class=&quot;master-wrapper-page&quot;&gt;&lt;div class=&quot;header&quot;&gt;&lt;div class=&quot;header-upper&quot;&gt;&lt;div class=&quot;header-selectors-wrapper&quot;&gt;&lt;div class=&quot;currency-selector&quot;&gt;&lt;select id=&quot;customerCurrency&quot; name=&quot;customerCurrency&quot; onchange=&quot;setLocation(this.value)&quot; aria-label=&quot;Currency selector&quot;&gt;&lt;option selected=&quot;&quot; value=&quot;https://demo.nopcommerce.com/changecurrency/1?returnUrl=%2F&quot;&gt;US Dollar&lt;/option&gt;&lt;option value=&quot;https://demo.nopcommerce.com/changecurrency/6?returnUrl=%2F&quot;&gt;Euro&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;header-links-wrapper&quot;&gt;&lt;div class=&quot;header-links&quot;&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;/register?returnUrl=%2F&quot; class=&quot;ico-register&quot;&gt;Register&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/login?returnUrl=%2F&quot; class=&quot;ico-login&quot;&gt;Log in&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/wishlist&quot; class=&quot;ico-wishlist&quot;&gt; &lt;span class=&quot;wishlist-label&quot;&gt;Wishlist&lt;/span&gt; &lt;span class=&quot;wishlist-qty&quot;&gt;(0)&lt;/span&gt; &lt;/a&gt;&lt;/li&gt;&lt;li id=&quot;topcartlink&quot;&gt;&lt;a href=&quot;/cart&quot; class=&quot;ico-cart&quot;&gt; &lt;span class=&quot;cart-label&quot;&gt;Shopping cart&lt;/span&gt; &lt;span class=&quot;cart-qty&quot;&gt;(0)&lt;/span&gt; &lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;div id=&quot;flyout-cart&quot; class=&quot;flyout-cart&quot;&gt;&lt;div class=&quot;mini-shopping-cart&quot;&gt;&lt;div class=&quot;count&quot;&gt;You have no items in your shopping cart.&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;header-lower&quot;&gt;&lt;div class=&quot;header-logo&quot;&gt;&lt;a href=&quot;/&quot;&gt; &lt;img alt=&quot;nopCommerce demo store&quot; src=&quot;https://demo.nopcommerce.com/Themes/DefaultClean/Content/images/logo.png&quot;&gt; &lt;/a&gt;&lt;/div&gt;&lt;div class=&quot;search-box store-search-box&quot;&gt;&lt;form method=&quot;get&quot; id=&quot;small-search-box-form&quot; action=&quot;/search&quot;&gt;&lt;input type=&quot;text&quot; class=&quot;search-box-text ui-autocomplete-input&quot; id=&quot;small-searchterms&quot; autocomplete=&quot;off&quot; name=&quot;q&quot; placeholder=&quot;Search store&quot; aria-label=&quot;Search store&quot;&gt; &lt;button type=&quot;submit&quot; class=&quot;button-1 search-box-button&quot;&gt;Search&lt;/button&gt;&lt;/form&gt;&lt;ul id=&quot;ui-id-1&quot; tabindex=&quot;0&quot; class=&quot;ui-menu ui-widget ui-widget-content ui-autocomplete ui-front&quot; style=&quot;display: none;&quot;&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;header-menu&quot;&gt;&lt;ul class=&quot;top-menu notmobile&quot;&gt;&lt;li&gt;&lt;a href=&quot;/computers&quot;&gt;Computers &lt;/a&gt;&lt;div class=&quot;sublist-toggle&quot;&gt;&lt;/div&gt;&lt;ul class=&quot;sublist first-level&quot;&gt;&lt;li&gt;&lt;a href=&quot;/desktops&quot;&gt;Desktops &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/notebooks&quot;&gt;Notebooks &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/software&quot;&gt;Software &lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/electronics&quot;&gt;Electronics &lt;/a&gt;&lt;div class=&quot;sublist-toggle&quot;&gt;&lt;/div&gt;&lt;ul class=&quot;sublist first-level&quot;&gt;&lt;li&gt;&lt;a href=&quot;/camera-photo&quot;&gt;Camera &amp;amp; photo &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/cell-phones&quot;&gt;Cell phones &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/others&quot;&gt;Others &lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/apparel&quot;&gt;Apparel &lt;/a&gt;&lt;div class=&quot;sublist-toggle&quot;&gt;&lt;/div&gt;&lt;ul class=&quot;sublist first-level&quot;&gt;&lt;li&gt;&lt;a href=&quot;/shoes&quot;&gt;Shoes &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/clothing&quot;&gt;Clothing &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/accessories&quot;&gt;Accessories &lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/digital-downloads&quot;&gt;Digital downloads &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/books&quot;&gt;Books &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/jewelry&quot;&gt;Jewelry &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/gift-cards&quot;&gt;Gift Cards &lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;div class=&quot;menu-toggle&quot;&gt;Categories&lt;/div&gt;&lt;ul class=&quot;top-menu mobile&quot;&gt;&lt;li&gt;&lt;a href=&quot;/computers&quot;&gt;Computers &lt;/a&gt;&lt;div class=&quot;sublist-toggle&quot;&gt;&lt;/div&gt;&lt;ul class=&quot;sublist first-level&quot;&gt;&lt;li&gt;&lt;a href=&quot;/desktops&quot;&gt;Desktops &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/notebooks&quot;&gt;Notebooks &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/software&quot;&gt;Software &lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/electronics&quot;&gt;Electronics &lt;/a&gt;&lt;div class=&quot;sublist-toggle&quot;&gt;&lt;/div&gt;&lt;ul class=&quot;sublist first-level&quot;&gt;&lt;li&gt;&lt;a href=&quot;/camera-photo&quot;&gt;Camera &amp;amp; photo &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/cell-phones&quot;&gt;Cell phones &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/others&quot;&gt;Others &lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/apparel&quot;&gt;Apparel &lt;/a&gt;&lt;div class=&quot;sublist-toggle&quot;&gt;&lt;/div&gt;&lt;ul class=&quot;sublist first-level&quot;&gt;&lt;li&gt;&lt;a href=&quot;/shoes&quot;&gt;Shoes &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/clothing&quot;&gt;Clothing &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/accessories&quot;&gt;Accessories &lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/digital-downloads&quot;&gt;Digital downloads &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/books&quot;&gt;Books &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/jewelry&quot;&gt;Jewelry &lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/gift-cards&quot;&gt;Gift Cards &lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;div class=&quot;master-wrapper-content&quot;&gt;&lt;div class=&quot;master-column-wrapper&quot;&gt;&lt;div class=&quot;center-1&quot;&gt;&lt;div class=&quot;page home-page&quot;&gt;&lt;div class=&quot;page-body&quot;&gt;&lt;div class=&quot;slider-wrapper theme-custom&quot;&gt;&lt;div id=&quot;nivo-slider&quot; class=&quot;nivoSlider&quot;&gt;&lt;a href=&quot;http://demo.nopcommerce.com/&quot; aria-label=&quot;&quot; class=&quot;nivo-imageLink&quot; style=&quot;display: block;&quot;&gt; &lt;img src=&quot;https://demo.nopcommerce.com/images/thumbs/0000079_banner_1.jpg&quot; data-thumb=&quot;https://demo.nopcommerce.com/images/thumbs/0000079_banner_1.jpg&quot; data-transition=&quot;&quot; alt=&quot;&quot; style=&quot;display: none;&quot;&gt; &lt;/a&gt; &lt;a href=&quot;http://demo.nopcommerce.com/&quot; aria-label=&quot;&quot; class=&quot;nivo-imageLink&quot; style=&quot;display: none;&quot;&gt; &lt;img src=&quot;https://demo.nopcommerce.com/images/thumbs/0000080_banner_2.jpg&quot; data-thumb=&quot;https://demo.nopcommerce.com/images/thumbs/0000080_banner_2.jpg&quot; data-transition=&quot;&quot; alt=&quot;&quot; style=&quot;display: none;&quot;&gt; &lt;/a&gt;&lt;img class=&quot;nivo-main-image&quot; src=&quot;https://demo.nopcommerce.com/images/thumbs/0000079_banner_1.jpg&quot; style=&quot;width: 980px; height: auto;&quot;&gt;&lt;div class=&quot;nivo-caption&quot;&gt;&lt;/div&gt;&lt;div class=&quot;nivo-directionNav&quot;&gt;&lt;a class=&quot;nivo-prevNav&quot;&gt;Prev&lt;/a&gt;&lt;a class=&quot;nivo-nextNav&quot;&gt;Next&lt;/a&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;nivo-controlNav&quot;&gt;&lt;a class=&quot;nivo-control active&quot; rel=&quot;0&quot;&gt;1&lt;/a&gt;&lt;a class=&quot;nivo-control&quot; rel=&quot;1&quot;&gt;2&lt;/a&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;topic-block&quot;&gt;&lt;div class=&quot;topic-block-title&quot;&gt;&lt;h2&gt;Welcome to our store&lt;/h2&gt;&lt;/div&gt;&lt;div class=&quot;topic-block-body&quot;&gt;&lt;p&gt;Online shopping is the process consumers go through to purchase products or services over the Internet. You can edit this in the admin site.&lt;/p&gt;&lt;p&gt;If you have questions, see the &lt;a href=&quot;http://docs.nopcommerce.com/&quot;&gt;Documentation&lt;/a&gt;, or post in the &lt;a href=&quot;https://www.nopcommerce.com/boards/&quot;&gt;Forums&lt;/a&gt; at &lt;a href=&quot;https://www.nopcommerce.com&quot;&gt;nopCommerce.com&lt;/a&gt;&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;category-grid home-page-category-grid&quot;&gt;&lt;div class=&quot;item-grid&quot;&gt;&lt;div class=&quot;item-box&quot;&gt;&lt;div class=&quot;category-item&quot;&gt;&lt;h2 class=&quot;title&quot;&gt;&lt;a href=&quot;/electronics&quot; title=&quot;Show products in category Electronics&quot;&gt; Electronics &lt;/a&gt;&lt;/h2&gt;&lt;div class=&quot;picture&quot;&gt;&lt;a href=&quot;/electronics&quot; title=&quot;Show products in category Electronics&quot;&gt; &lt;img alt=&quot;Picture for category Electronics&quot; src=&quot;https://demo.nopcommerce.com/images/thumbs/0000005_electronics_450.jpeg&quot; title=&quot;Show products in category Electronics&quot;&gt; &lt;/a&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;item-box&quot;&gt;&lt;div class=&quot;category-item&quot;&gt;&lt;h2 class=&quot;title&quot;&gt;&lt;a href=&quot;/apparel&quot; title=&quot;Show products in category Apparel&quot;&gt; Apparel &lt;/a&gt;&lt;/h2&gt;&lt;div class=&quot;picture&quot;&gt;&lt;a href=&quot;/apparel&quot; title=&quot;Show products in category Apparel&quot;&gt; &lt;img alt=&quot;Picture for category Apparel&quot; src=&quot;https://demo.nopcommerce.com/images/thumbs/0000009_apparel_450.jpeg&quot; title=&quot;Show products in category Apparel&quot;&gt; &lt;/a&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;item-box&quot;&gt;&lt;div class=&quot;category-item&quot;&gt;&lt;h2 class=&quot;title&quot;&gt;&lt;a href=&quot;/digital-downloads&quot; title=&quot;Show products in category Digital downloads&quot;&gt; Digital downloads &lt;/a&gt;&lt;/h2&gt;&lt;div class=&quot;picture&quot;&gt;&lt;a href=&quot;/digital-downloads&quot; title=&quot;Show products in category Digital downloads&quot;&gt; &lt;img alt=&quot;Picture for category Digital downloads&quot; src=&quot;https://demo.nopcommerce.com/images/thumbs/0000013_digital-downloads_450.jpeg&quot; title=&quot;Show products in category Digital downloads&quot;&gt; &lt;/a&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;product-grid home-page-product-grid&quot;&gt;&lt;div class=&quot;title&quot;&gt;&lt;strong&gt;Featured products&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;item-grid&quot;&gt;&lt;div class=&quot;item-box&quot;&gt;&lt;div class=&quot;product-item&quot; data-productid=&quot;1&quot;&gt;&lt;div class=&quot;picture&quot;&gt;&lt;a href=&quot;/build-your-own-computer&quot; title=&quot;Show details for Build your own computer&quot;&gt; &lt;img alt=&quot;Picture of Build your own computer&quot; src=&quot;https://demo.nopcommerce.com/images/thumbs/0000020_build-your-own-computer_415.jpeg&quot; title=&quot;Show details for Build your own computer&quot;&gt; &lt;/a&gt;&lt;/div&gt;&lt;div class=&quot;details&quot;&gt;&lt;h2 class=&quot;product-title&quot;&gt;&lt;a href=&quot;/build-your-own-computer&quot;&gt;Build your own computer&lt;/a&gt;&lt;/h2&gt;&lt;div class=&quot;product-rating-box&quot; title=&quot;1 review(s)&quot;&gt;&lt;div class=&quot;rating&quot;&gt;&lt;div style=&quot;width:100%&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;description&quot;&gt;Build it&lt;/div&gt;&lt;div class=&quot;add-info&quot;&gt;&lt;div class=&quot;prices&quot;&gt;&lt;span class=&quot;price actual-price&quot;&gt;$1,200.00&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;buttons&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;button-2 product-box-add-to-cart-button&quot; onclick=&quot;return AjaxCart.addproducttocart_catalog(&amp;quot;/addproducttocart/catalog/1/1/1&amp;quot;),!1&quot;&gt;Add to cart&lt;/button&gt; &lt;button type=&quot;button&quot; class=&quot;button-2 add-to-compare-list-button&quot; title=&quot;Add to compare list&quot; onclick=&quot;return AjaxCart.addproducttocomparelist(&amp;quot;/compareproducts/add/1&amp;quot;),!1&quot;&gt;Add to compare list&lt;/button&gt; &lt;button type=&quot;button&quot; class=&quot;button-2 add-to-wishlist-button&quot; title=&quot;Add to wishlist&quot; onclick=&quot;return AjaxCart.addproducttocart_catalog(&amp;quot;/addproducttocart/catalog/1/2/1&amp;quot;),!1&quot;&gt;Add to wishlist&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;item-box&quot;&gt;&lt;div class=&quot;product-item&quot; data-productid=&quot;4&quot;&gt;&lt;div class=&quot;picture&quot;&gt;&lt;a href=&quot;/apple-macbook-pro-13-inch&quot; title=&quot;Show details for Apple MacBook Pro 13-inch&quot;&gt; &lt;img alt=&quot;Picture of Apple MacBook Pro 13-inch&quot; src=&quot;https://demo.nopcommerce.com/images/thumbs/0000024_apple-macbook-pro-13-inch_415.jpeg&quot; title=&quot;Show details for Apple MacBook Pro 13-inch&quot;&gt; &lt;/a&gt;&lt;/div&gt;&lt;div class=&quot;details&quot;&gt;&lt;h2 class=&quot;product-title&quot;&gt;&lt;a href=&quot;/apple-macbook-pro-13-inch&quot;&gt;Apple MacBook Pro 13-inch&lt;/a&gt;&lt;/h2&gt;&lt;div class=&quot;product-rating-box&quot; title=&quot;1 review(s)&quot;&gt;&lt;div class=&quot;rating&quot;&gt;&lt;div style=&quot;width:100%&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;description&quot;&gt;A groundbreaking Retina display. A new force-sensing trackpad. All-flash architecture. Powerful dual-core and quad-core Intel processors. Together, these features take the notebook to a new level of performance. And they will do the same for you in everything you create.&lt;/div&gt;&lt;div class=&quot;add-info&quot;&gt;&lt;div class=&quot;prices&quot;&gt;&lt;span class=&quot;price actual-price&quot;&gt;$1,800.00&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;buttons&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;button-2 product-box-add-to-cart-button&quot; onclick=&quot;return AjaxCart.addproducttocart_catalog(&amp;quot;/addproducttocart/catalog/4/1/1&amp;quot;),!1&quot;&gt;Add to cart&lt;/button&gt; &lt;button type=&quot;button&quot; class=&quot;button-2 add-to-compare-list-button&quot; title=&quot;Add to compare list&quot; onclick=&quot;return AjaxCart.addproducttocomparelist(&amp;quot;/compareproducts/add/4&amp;quot;),!1&quot;&gt;Add to compare list&lt;/button&gt; &lt;button type=&quot;button&quot; class=&quot;button-2 add-to-wishlist-button&quot; title=&quot;Add to wishlist&quot; onclick=&quot;return AjaxCart.addproducttocart_catalog(&amp;quot;/addproducttocart/catalog/4/2/1&amp;quot;),!1&quot;&gt;Add to wishlist&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;item-box&quot;&gt;&lt;div class=&quot;product-item&quot; data-productid=&quot;18&quot;&gt;&lt;div class=&quot;picture&quot;&gt;&lt;a href=&quot;/htc-one-m8-android-l-50-lollipop&quot; title=&quot;Show details for HTC One M8 Android L 5.0 Lollipop&quot;&gt; &lt;img alt=&quot;Picture of HTC One M8 Android L 5.0 Lollipop&quot; src=&quot;https://demo.nopcommerce.com/images/thumbs/0000041_htc-one-m8-android-l-50-lollipop_415.jpeg&quot; title=&quot;Show details for HTC One M8 Android L 5.0 Lollipop&quot;&gt; &lt;/a&gt;&lt;/div&gt;&lt;div class=&quot;details&quot;&gt;&lt;h2 class=&quot;product-title&quot;&gt;&lt;a href=&quot;/htc-one-m8-android-l-50-lollipop&quot;&gt;HTC One M8 Android L 5.0 Lollipop&lt;/a&gt;&lt;/h2&gt;&lt;div class=&quot;product-rating-box&quot; title=&quot;1 review(s)&quot;&gt;&lt;div class=&quot;rating&quot;&gt;&lt;div style=&quot;width:100%&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;description&quot;&gt;HTC - One (M8) 4G LTE Cell Phone with 32GB Memory - Gunmetal (Sprint)&lt;/div&gt;&lt;div class=&quot;add-info&quot;&gt;&lt;div class=&quot;prices&quot;&gt;&lt;span class=&quot;price actual-price&quot;&gt;$245.00&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;buttons&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;button-2 product-box-add-to-cart-button&quot; onclick=&quot;return AjaxCart.addproducttocart_catalog(&amp;quot;/addproducttocart/catalog/18/1/1&amp;quot;),!1&quot;&gt;Add to cart&lt;/button&gt; &lt;button type=&quot;button&quot; class=&quot;button-2 add-to-compare-list-button&quot; title=&quot;Add to compare list&quot; onclick=&quot;return AjaxCart.addproducttocomparelist(&amp;quot;/compareproducts/add/18&amp;quot;),!1&quot;&gt;Add to compare list&lt;/button&gt; &lt;button type=&quot;button&quot; class=&quot;button-2 add-to-wishlist-button&quot; title=&quot;Add to wishlist&quot; onclick=&quot;return AjaxCart.addproducttocart_catalog(&amp;quot;/addproducttocart/catalog/18/2/1&amp;quot;),!1&quot;&gt;Add to wishlist&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;item-box&quot;&gt;&lt;div class=&quot;product-item&quot; data-productid=&quot;43&quot;&gt;&lt;div class=&quot;picture&quot;&gt;&lt;a href=&quot;/25-virtual-gift-card&quot; title=&quot;Show details for $25 Virtual Gift Card&quot;&gt; &lt;img alt=&quot;Picture of $25 Virtual Gift Card&quot; src=&quot;https://demo.nopcommerce.com/images/thumbs/0000074_25-virtual-gift-card_415.jpeg&quot; title=&quot;Show details for $25 Virtual Gift Card&quot;&gt; &lt;/a&gt;&lt;/div&gt;&lt;div class=&quot;details&quot;&gt;&lt;h2 class=&quot;product-title&quot;&gt;&lt;a href=&quot;/25-virtual-gift-card&quot;&gt;$25 Virtual Gift Card&lt;/a&gt;&lt;/h2&gt;&lt;div class=&quot;product-rating-box&quot; title=&quot;1 review(s)&quot;&gt;&lt;div class=&quot;rating&quot;&gt;&lt;div style=&quot;width:100%&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;description&quot;&gt;$25 Gift Card. Gift Cards must be redeemed through our site Web site toward the purchase of eligible products.&lt;/div&gt;&lt;div class=&quot;add-info&quot;&gt;&lt;div class=&quot;prices&quot;&gt;&lt;span class=&quot;price actual-price&quot;&gt;$25.00&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;buttons&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;button-2 product-box-add-to-cart-button&quot; onclick=&quot;return AjaxCart.addproducttocart_catalog(&amp;quot;/addproducttocart/catalog/43/1/1&amp;quot;),!1&quot;&gt;Add to cart&lt;/button&gt; &lt;button type=&quot;button&quot; class=&quot;button-2 add-to-compare-list-button&quot; title=&quot;Add to compare list&quot; onclick=&quot;return AjaxCart.addproducttocomparelist(&amp;quot;/compareproducts/add/43&amp;quot;),!1&quot;&gt;Add to compare list&lt;/button&gt; &lt;button type=&quot;button&quot; class=&quot;button-2 add-to-wishlist-button&quot; title=&quot;Add to wishlist&quot; onclick=&quot;return AjaxCart.addproducttocart_catalog(&amp;quot;/addproducttocart/catalog/43/2/1&amp;quot;),!1&quot;&gt;Add to wishlist&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;news-list-homepage&quot;&gt;&lt;div class=&quot;title&quot;&gt;&lt;strong&gt;News&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;news-items&quot;&gt;&lt;div class=&quot;news-item&quot;&gt;&lt;div class=&quot;news-head&quot;&gt;&lt;a class=&quot;news-title&quot; href=&quot;/new-online-store-is-open&quot;&gt;New online store is open!&lt;/a&gt; &lt;span class=&quot;news-date&quot;&gt;-Thursday, July 26, 2018&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;news-body&quot;&gt;The new nopCommerce store is open now! We are very excited to offer our new range of products. We will be constantly adding to our range so please register on our site.&lt;/div&gt;&lt;div class=&quot;buttons&quot;&gt;&lt;a href=&quot;/new-online-store-is-open&quot; class=&quot;read-more&quot;&gt;details&lt;/a&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;news-item&quot;&gt;&lt;div class=&quot;news-head&quot;&gt;&lt;a class=&quot;news-title&quot; href=&quot;/nopcommerce-new-release&quot;&gt;nopCommerce new release!&lt;/a&gt; &lt;span class=&quot;news-date&quot;&gt;-Thursday, July 26, 2018&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;news-body&quot;&gt;nopCommerce includes everything you need to begin your e-commerce online store. We have thought of everything and it&#x27;s all included! nopCommerce is a fully customizable shopping cart&lt;/div&gt;&lt;div class=&quot;buttons&quot;&gt;&lt;a href=&quot;/nopcommerce-new-release&quot; class=&quot;read-more&quot;&gt;details&lt;/a&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;news-item&quot;&gt;&lt;div class=&quot;news-head&quot;&gt;&lt;a class=&quot;news-title&quot; href=&quot;/about-nopcommerce&quot;&gt;About nopCommerce&lt;/a&gt; &lt;span class=&quot;news-date&quot;&gt;-Thursday, July 26, 2018&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;news-body&quot;&gt;It&#x27;s stable and highly usable. From downloads to documentation, www.nopCommerce.com offers a comprehensive base of information, resources, and support to the nopCommerce community.&lt;/div&gt;&lt;div class=&quot;buttons&quot;&gt;&lt;a href=&quot;/about-nopcommerce&quot; class=&quot;read-more&quot;&gt;details&lt;/a&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;view-all&quot;&gt;&lt;a href=&quot;/news&quot;&gt;View News Archive&lt;/a&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;home-page-polls&quot;&gt;&lt;div class=&quot;title&quot;&gt;&lt;strong&gt;Community poll&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;poll&quot; id=&quot;poll-block-1&quot;&gt;&lt;strong class=&quot;poll-display-text&quot;&gt;Do you like nopCommerce?&lt;/strong&gt;&lt;ul class=&quot;poll-options&quot;&gt;&lt;li class=&quot;answer&quot;&gt;&lt;input id=&quot;pollanswers-1&quot; type=&quot;radio&quot; name=&quot;pollanswers-1&quot; value=&quot;1&quot;&gt; &lt;label for=&quot;pollanswers-1&quot;&gt;Excellent&lt;/label&gt;&lt;/li&gt;&lt;li class=&quot;answer&quot;&gt;&lt;input id=&quot;pollanswers-2&quot; type=&quot;radio&quot; name=&quot;pollanswers-1&quot; value=&quot;2&quot;&gt; &lt;label for=&quot;pollanswers-2&quot;&gt;Good&lt;/label&gt;&lt;/li&gt;&lt;li class=&quot;answer&quot;&gt;&lt;input id=&quot;pollanswers-3&quot; type=&quot;radio&quot; name=&quot;pollanswers-1&quot; value=&quot;3&quot;&gt; &lt;label for=&quot;pollanswers-3&quot;&gt;Poor&lt;/label&gt;&lt;/li&gt;&lt;li class=&quot;answer&quot;&gt;&lt;input id=&quot;pollanswers-4&quot; type=&quot;radio&quot; name=&quot;pollanswers-1&quot; value=&quot;4&quot;&gt; &lt;label for=&quot;pollanswers-4&quot;&gt;Very bad&lt;/label&gt;&lt;/li&gt;&lt;/ul&gt;&lt;div class=&quot;buttons&quot;&gt;&lt;button type=&quot;button&quot; id=&quot;vote-poll-1&quot; class=&quot;button-2 vote-poll-button&quot;&gt;Vote&lt;/button&gt; &lt;span id=&quot;poll-voting-progress-1&quot; style=&quot;display:none&quot; class=&quot;please-wait&quot;&gt;Wait...&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;poll-vote-error&quot; id=&quot;block-poll-vote-error-1&quot; style=&quot;display:none&quot;&gt;&lt;/div&gt;&lt;input name=&quot;__RequestVerificationToken&quot; type=&quot;hidden&quot; value=&quot;CfDJ8JlLt0C9fJVDip1JcvIpkXQ98U2Mk0XtKTw8GIj1C8fl6uDJ6R6UZ3GQLQkcyQI7nVUupUicc7F8AtAbBOsGZ2kVTOH5zU3ldyUTA_ADAF850glG2nhKApLrqCVQhSl1wpdAxQWfs-u9zd4wb6a5Z_c&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;footer&quot;&gt;&lt;div class=&quot;footer-upper&quot;&gt;&lt;div class=&quot;footer-block information&quot;&gt;&lt;div class=&quot;title&quot;&gt;&lt;strong&gt;Information&lt;/strong&gt;&lt;/div&gt;&lt;ul class=&quot;list&quot;&gt;&lt;li&gt;&lt;a href=&quot;/sitemap&quot;&gt;Sitemap&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/shipping-returns&quot;&gt;Shipping &amp;amp; returns&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/privacy-notice&quot;&gt;Privacy notice&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/conditions-of-use&quot;&gt;Conditions of Use&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/about-us&quot;&gt;About us&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/contactus&quot;&gt;Contact us&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;div class=&quot;footer-block customer-service&quot;&gt;&lt;div class=&quot;title&quot;&gt;&lt;strong&gt;Customer service&lt;/strong&gt;&lt;/div&gt;&lt;ul class=&quot;list&quot;&gt;&lt;li&gt;&lt;a href=&quot;/search&quot;&gt;Search&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/news&quot;&gt;News&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/blog&quot;&gt;Blog&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/recentlyviewedproducts&quot;&gt;Recently viewed products&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/compareproducts&quot;&gt;Compare products list&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/newproducts&quot;&gt;New products&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;div class=&quot;footer-block my-account&quot;&gt;&lt;div class=&quot;title&quot;&gt;&lt;strong&gt;My account&lt;/strong&gt;&lt;/div&gt;&lt;ul class=&quot;list&quot;&gt;&lt;li&gt;&lt;a href=&quot;/customer/info&quot;&gt;My account&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/order/history&quot;&gt;Orders&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/customer/addresses&quot;&gt;Addresses&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/cart&quot;&gt;Shopping cart&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/wishlist&quot;&gt;Wishlist&lt;/a&gt;&lt;/li&gt;&lt;li&gt;&lt;a href=&quot;/vendor/apply&quot;&gt;Apply for vendor account&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;div class=&quot;footer-block follow-us&quot;&gt;&lt;div class=&quot;social&quot;&gt;&lt;div class=&quot;title&quot;&gt;&lt;strong&gt;Follow us&lt;/strong&gt;&lt;/div&gt;&lt;ul class=&quot;networks&quot;&gt;&lt;li class=&quot;facebook&quot;&gt;&lt;a href=&quot;http://www.facebook.com/nopCommerce&quot; target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;&gt;Facebook&lt;/a&gt;&lt;/li&gt;&lt;li class=&quot;twitter&quot;&gt;&lt;a href=&quot;https://twitter.com/nopCommerce&quot; target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;&gt;Twitter&lt;/a&gt;&lt;/li&gt;&lt;li class=&quot;rss&quot;&gt;&lt;a href=&quot;/news/rss/1&quot;&gt;RSS&lt;/a&gt;&lt;/li&gt;&lt;li class=&quot;youtube&quot;&gt;&lt;a href=&quot;http://www.youtube.com/user/nopCommerce&quot; target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;&gt;YouTube&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;div class=&quot;newsletter&quot;&gt;&lt;div class=&quot;title&quot;&gt;&lt;strong&gt;Newsletter&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;newsletter-subscribe&quot; id=&quot;newsletter-subscribe-block&quot;&gt;&lt;div class=&quot;newsletter-email&quot;&gt;&lt;input id=&quot;newsletter-email&quot; class=&quot;newsletter-subscribe-text&quot; placeholder=&quot;Enter your email here...&quot; aria-label=&quot;Sign up for our newsletter&quot; type=&quot;email&quot; name=&quot;NewsletterEmail&quot;&gt; &lt;button type=&quot;button&quot; id=&quot;newsletter-subscribe-button&quot; class=&quot;button-1 newsletter-subscribe-button&quot;&gt;Subscribe&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;newsletter-validation&quot;&gt;&lt;span id=&quot;subscribe-loading-progress&quot; style=&quot;display:none&quot; class=&quot;please-wait&quot;&gt;Wait...&lt;/span&gt; &lt;span class=&quot;field-validation-valid&quot; data-valmsg-for=&quot;NewsletterEmail&quot; data-valmsg-replace=&quot;true&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;newsletter-result&quot; id=&quot;newsletter-result-block&quot;&gt;&lt;/div&gt;&lt;input name=&quot;__RequestVerificationToken&quot; type=&quot;hidden&quot; value=&quot;CfDJ8JlLt0C9fJVDip1JcvIpkXQ98U2Mk0XtKTw8GIj1C8fl6uDJ6R6UZ3GQLQkcyQI7nVUupUicc7F8AtAbBOsGZ2kVTOH5zU3ldyUTA_ADAF850glG2nhKApLrqCVQhSl1wpdAxQWfs-u9zd4wb6a5Z_c&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;footer-lower&quot;&gt;&lt;div class=&quot;footer-info&quot;&gt;&lt;span class=&quot;footer-disclaimer&quot;&gt;Copyright © 2022 nopCommerce demo store. All rights reserved.&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;footer-powered-by&quot;&gt;Powered by &lt;a href=&quot;https://www.nopcommerce.com/&quot; target=&quot;_blank&quot;&gt;nopCommerce&lt;/a&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;script src=&quot;/js/Homepage.Footer.scripts.js?v=eZlXVOtvTtQGxv8U2tz-F0_vsGY&quot;&gt;&lt;/script&gt;&lt;script src=&quot;/Plugins/Widgets.NivoSlider/Scripts/jquery.nivo.slider.js?v=v4esx4-nzB5RcvqrlOrZzpYvBxc&quot;&gt;&lt;/script&gt;&lt;script&gt;$(window).on(&quot;load&quot;,function(){$(&quot;#nivo-slider&quot;).nivoSlider()})&lt;/script&gt;&lt;script&gt;$(document).ready(function(){$(&quot;#vote-poll-1&quot;).on(&quot;click&quot;,function(){var i=$(&quot;input:radio[name=pollanswers-1]:checked&quot;).val(),n,t;return typeof i==&quot;undefined&quot;?alert(&quot;Please select an answer&quot;):(n=$(&quot;#poll-voting-progress-1&quot;),n.show(),t={pollAnswerId:i},addAntiForgeryToken(t),$.ajax({cache:!1,type:&quot;POST&quot;,url:&quot;/poll/vote&quot;,data:t,success:function(n){n.error&amp;&amp;($(&quot;#block-poll-vote-error-1&quot;).html(n.error),$(&quot;#block-poll-vote-error-1&quot;).fadeIn(&quot;slow&quot;).delay(2e3).fadeOut(&quot;slow&quot;));n.html&amp;&amp;$(&quot;#poll-block-1&quot;).replaceWith(n.html)},error:function(){alert(&quot;Failed to vote.&quot;)},complete:function(){n.hide()}})),!1})})&lt;/script&gt;&lt;script&gt;$(document).ready(function(){$(&quot;.header&quot;).on(&quot;mouseenter&quot;,&quot;#topcartlink&quot;,function(){$(&quot;#flyout-cart&quot;).addClass(&quot;active&quot;)});$(&quot;.header&quot;).on(&quot;mouseleave&quot;,&quot;#topcartlink&quot;,function(){$(&quot;#flyout-cart&quot;).removeClass(&quot;active&quot;)});$(&quot;.header&quot;).on(&quot;mouseenter&quot;,&quot;#flyout-cart&quot;,function(){$(&quot;#flyout-cart&quot;).addClass(&quot;active&quot;)});$(&quot;.header&quot;).on(&quot;mouseleave&quot;,&quot;#flyout-cart&quot;,function(){$(&quot;#flyout-cart&quot;).removeClass(&quot;active&quot;)})})&lt;/script&gt;&lt;script&gt;$(&quot;#small-search-box-form&quot;).on(&quot;submit&quot;,function(n){$(&quot;#small-searchterms&quot;).val()==&quot;&quot;&amp;&amp;(alert(&quot;Please enter some search keyword&quot;),$(&quot;#small-searchterms&quot;).focus(),n.preventDefault())})&lt;/script&gt;&lt;script&gt;$(document).ready(function(){var n,t;$(&quot;#small-searchterms&quot;).autocomplete({delay:500,minLength:3,source:&quot;/catalog/searchtermautocomplete&quot;,appendTo:&quot;.search-box&quot;,select:function(n,t){return $(&quot;#small-searchterms&quot;).val(t.item.label),setLocation(t.item.producturl),!1},open:function(){n&amp;&amp;(t=document.getElementById(&quot;small-searchterms&quot;).value,$(&quot;.ui-autocomplete&quot;).append(&#x27;&lt;li class=&quot;ui-menu-item&quot; role=&quot;presentation&quot;&gt;&lt;a href=&quot;/search?q=&#x27;+t+&#x27;&quot;&gt;View all results...&lt;\/a&gt;&lt;\/li&gt;&#x27;))}}).data(&quot;ui-autocomplete&quot;)._renderItem=function(t,i){var r=i.label;return n=i.showlinktoresultsearch,r=htmlEncode(r),$(&quot;&lt;li&gt;&lt;\/li&gt;&quot;).data(&quot;item.autocomplete&quot;,i).append(&quot;&lt;a&gt;&lt;span&gt;&quot;+r+&quot;&lt;\/span&gt;&lt;\/a&gt;&quot;).appendTo(t)}})&lt;/script&gt;&lt;script&gt;var localized_data={AjaxCartFailure:&quot;Failed to add the product. Please refresh the page and try one more time.&quot;};AjaxCart.init(!1,&quot;.header-links .cart-qty&quot;,&quot;.header-links .wishlist-qty&quot;,&quot;#flyout-cart&quot;,localized_data)&lt;/script&gt;&lt;script&gt;$(document).ready(function(){$(&quot;.menu-toggle&quot;).on(&quot;click&quot;,function(){$(this).siblings(&quot;.top-menu.mobile&quot;).slideToggle(&quot;slow&quot;)});$(&quot;.top-menu.mobile .sublist-toggle&quot;).on(&quot;click&quot;,function(){$(this).siblings(&quot;.sublist&quot;).slideToggle(&quot;slow&quot;)})})&lt;/script&gt;&lt;script&gt;function newsletter_subscribe(n){var i=$(&quot;#subscribe-loading-progress&quot;),t;i.show();t={subscribe:n,email:$(&quot;#newsletter-email&quot;).val()};addAntiForgeryToken(t);$.ajax({cache:!1,type:&quot;POST&quot;,url:&quot;/subscribenewsletter&quot;,data:t,success:function(n){$(&quot;#newsletter-result-block&quot;).html(n.Result);n.Success?($(&quot;#newsletter-subscribe-block&quot;).hide(),$(&quot;#newsletter-result-block&quot;).show()):$(&quot;#newsletter-result-block&quot;).fadeIn(&quot;slow&quot;).delay(2e3).fadeOut(&quot;slow&quot;)},error:function(){alert(&quot;Failed to subscribe.&quot;)},complete:function(){i.hide()}})}$(document).ready(function(){$(&quot;#newsletter-subscribe-button&quot;).on(&quot;click&quot;,function(){newsletter_subscribe(&quot;true&quot;)});$(&quot;#newsletter-email&quot;).on(&quot;keydown&quot;,function(n){if(n.keyCode==13)return $(&quot;#newsletter-subscribe-button&quot;).trigger(&quot;click&quot;),!1})})&lt;/script&gt;&lt;script&gt;$(document).ready(function(){$(&quot;.footer-block .title&quot;).on(&quot;click&quot;,function(){var n=window,t=&quot;inner&quot;,i;&quot;innerWidth&quot;in window||(t=&quot;client&quot;,n=document.documentElement||document.body);i={width:n[t+&quot;Width&quot;],height:n[t+&quot;Height&quot;]};i.width&lt;769&amp;&amp;$(this).siblings(&quot;.list&quot;).slideToggle(&quot;slow&quot;)})})&lt;/script&gt;&lt;script&gt;$(document).ready(function(){$(&quot;.block .title&quot;).on(&quot;click&quot;,function(){var n=window,t=&quot;inner&quot;,i;&quot;innerWidth&quot;in window||(t=&quot;client&quot;,n=document.documentElement||document.body);i={width:n[t+&quot;Width&quot;],height:n[t+&quot;Height&quot;]};i.width&lt;1001&amp;&amp;$(this).siblings(&quot;.listbox&quot;).slideToggle(&quot;slow&quot;)})})&lt;/script&gt;&lt;div role=&quot;status&quot; aria-live=&quot;assertive&quot; aria-relevant=&quot;additions&quot; class=&quot;ui-helper-hidden-accessible&quot;&gt;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;
+<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0DCC0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/6f882197b775415b859eb4b39d5750cc
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F280&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/6f882197b775415b859eb4b39d5750cc
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F7F0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/6f882197b775415b859eb4b39d5750cc<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_getLogin</td>
+          <td class="col-duration">26.59</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0CDF0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/cccf0de1a955879caafaeb87ba1c2c75
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F040&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/cccf0de1a955879caafaeb87ba1c2c75
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F730&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/cccf0de1a955879caafaeb87ba1c2c75<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_get_DoubleSlider</td>
+          <td class="col-duration">30.68</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+Initial position of the left slider:  {&#x27;x&#x27;: 110, &#x27;y&#x27;: 438}
+Initial position of the right slider:  {&#x27;x&#x27;: 331, &#x27;y&#x27;: 438}
+
+Final position of the left slider:  {&#x27;x&#x27;: 186, &#x27;y&#x27;: 438}
+Final position of the right slider:  {&#x27;x&#x27;: 237, &#x27;y&#x27;: 438}
+<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0FC70&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/0588141568cc54fe59d60362351bf40a
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0EF80&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/0588141568cc54fe59d60362351bf40a
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0DB10&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/0588141568cc54fe59d60362351bf40a<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_automation_page.py::test_get_SlidersLinks</td>
+          <td class="col-duration">34.59</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> -----------------------------Captured stdout setup------------------------------ <br/>
+<br/> -----------------------------Captured stderr setup------------------------------ <br/>[WDM] - ====== WebDriver manager ======
+[WDM] - Current google-chrome version is 101.0.4951
+[WDM] - Get LATEST chromedriver version for 101.0.4951 google-chrome
+[WDM] - Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache
+<br/> -------------------------------Captured log setup------------------------------- <br/>INFO     WDM:logger.py:16 ====== WebDriver manager ======
+INFO     WDM:logger.py:16 Current google-chrome version is 101.0.4951
+INFO     WDM:logger.py:16 Get LATEST chromedriver version for 101.0.4951 google-chrome
+INFO     WDM:logger.py:16 Driver [C:\Users\aura_\.wdm\drivers\chromedriver\win32\101.0.4951.41\chromedriver.exe] found in cache<br/> ------------------------------Captured stdout call------------------------------ <br/>
+
+Tile of the page:
+
+ Optica Eugen – oftalmologie Timisoara, cabinet oftalmologic Timisoara-Unirii, cabinet oftalmologic Lugoj, cabinet oftalmologic Sannicolau Mare, cabinet oftalmologic Jimbolia, cabinet oftalmologic Iosefin, consultatii oftalmologice, medici oftalomogi: Medic oftalmolog: Dragila Marius, Ozman Mihai, Bolintineanu Carmen, Ciubuca Georgiana, Goiko, medic oftalmolog chirurg Miculita Liliana) Consultatii oftalmologice computerizate : 
+
+ links = 98
+
+ All the links on the page: 
+
+   The link is ok:                                    https://www.opticaeugen.ro/#page
+   The link is ok:    0256 232 230                                tel:0256 232 230
+   The link is ok:                                    https://www.facebook.com/optica.eugen.timisoara/
+   The link is ok:                                    https://twitter.com/Optica_Eugen
+   The link is broken:                                    https://www.instagram.com/optica_eugen/
+   The link is ok:                                    https://www.youtube.com/channel/UC8FwdScmzxWd2BioJoaafqg/videos
+   The link is ok:    optica_eugen@yahoo.com                                mailto:optica_eugen@yahoo.com
+   The link is ok:    Oferte Speciale                                https://www.opticaeugen.ro/oferte/
+   The link is ok:    Rame 2020                                https://www.ochelari4you.ro/brand/dolce-gabbana/
+   The link is ok:    Medici                                https://www.opticaeugen.ro/medici/
+   The link is ok:                                    https://www.opticaeugen.ro/
+   The link is ok:    NOUTATI                                https://www.opticaeugen.ro/
+   The link is ok:    MAGAZIN ONLINE                                https://www.ochelari4you.ro/
+   The link is ok:    LENTILE                                https://www.opticaeugen.ro/lentile_ochelari/
+   The link is ok:    SERVICII                                https://www.opticaeugen.ro/servicii/
+   The link is ok:    CONSULTATII                                https://www.opticaeugen.ro/consultatii/
+   The link is ok:    CONTACT                                https://www.opticaeugen.ro/contact/
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:    AFLA MAI MULTE DETALII!                                https://www.zeiss.com/vision-care/int/spectacle-lenses-from-zeiss/smartlife-lenses.html
+   The link is ok:    SITE ZEISS                                https://www.zeiss.com/corporate/int/home.html
+   The link is ok:    VEZI OFERTA!                                https://www.ochelari4you.ro/
+   The link is ok:                                    https://www.ochelari4you.ro/categorie/oferte-speciale/
+   The link is ok:                                    https://www.ochelari4you.ro/categorie/oferte-speciale/
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/1.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/1.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/4.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/4.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/9.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/9.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/6.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/6.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/7.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/7.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/3.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/3.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/2.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/2.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/8.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/8.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/5.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2020/09/5.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/1-4.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/1-4.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/3-3.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/3-3.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/4-3.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/4-3.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/5-2.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/5-2.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2019/10/Untitled-1-1.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2019/10/Untitled-1-1.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    javascript:void(0);
+   The link is ok:                                    javascript:void(0);
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/aa.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/b.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/a.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/c.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/d.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/aa-thegem-gallery-fullwidth.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/b-thegem-gallery-fullwidth.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/a-thegem-gallery-fullwidth.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/c-thegem-gallery-fullwidth.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/wp-content/uploads/2017/10/d-thegem-gallery-fullwidth.jpg
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.opticaeugen.ro/#
+   The link is ok:                                    https://www.facebook.com/optica.eugen.timisoara/
+   The link is ok:                                    https://twitter.com/Optica_Eugen
+   The link is ok:                                    https://www.instagram.com/optica_eugen/
+   The link is ok:                                    https://ro.pinterest.com/opticaeugen/
+   The link is ok:                                    https://www.youtube.com/channel/UC8FwdScmzxWd2BioJoaafqg/videos
+   The link is ok:                                    https://www.ochelari4you.ro/
+   The link is ok:    Optica Eugen                                https://www.opticaeugen.ro/#
+   The link is ok:    Accept                                https://www.opticaeugen.ro/#
+   The link is ok:    Nu accept                                https://www.opticaeugen.ro/#
+   The link is ok:    Cookies                                https://www.opticaeugen.ro/cookies/
+----------------------------------------------------------------------------------------------
+Total no. of broken links:  1
+Total no. of ok links:  97
+<br/> -----------------------------Captured log teardown------------------------------ <br/>WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0CCA0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/55be16c72f76e66fcee4cafc257633af
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0F9D0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/55be16c72f76e66fcee4cafc257633af
+WARNING  urllib3.connectionpool:connectionpool.py:810 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by &#x27;NewConnectionError(&#x27;&lt;urllib3.connection.HTTPConnection object at 0x000001D0D8E0E3E0&gt;: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it&#x27;)&#x27;: /session/55be16c72f76e66fcee4cafc257633af<br/></div></td></tr></tbody></table></body></html>
