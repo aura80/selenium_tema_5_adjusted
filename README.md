@@ -81,7 +81,8 @@ run pipenv install pytest-xdist  -  for run in parallel
     a sequence but we don't want to keep all the values obtained in the memory. We use 'yield' instead of 'return' because return sends 
     just a specific value back to it's caller and yield can send back a sequence of values back to it's caller. yield driver will 
     return the webdriver instance.
-    In the end of the file the driver is closed using driver.quit().
+    In the end of the file the driver is closed using driver.quit(). So, the 'conftest.py' file is the setup for tests and it describes 
+    what is done before and after each test.
         
         The 'test_automation_page.py' file contains all the main five classes imported at the beginning. Below are the twenty-one test 
     methods which begin with 'test' in their name and have 'browser' as a parameter. In every method I firstly made an object 
