@@ -1,6 +1,6 @@
 from pages.automation_page import AutomTestPracticePage
-from pages.automation_page import DemoNopCommerce
-from pages.eugen import Eugen
+from pages.demonop_page import DemoNopCommerce
+from pages.eugen_page import Eugen
 from pages.sliders_links_page import DemoSlider
 from pages.switch_amazon_links_page import amazon
 
