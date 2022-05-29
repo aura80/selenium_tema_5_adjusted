@@ -4,7 +4,7 @@ from selenium.webdriver import ActionChains                         # for mouse 
 from selenium.webdriver.support.select import Select                # for selections ex dropdowns
 
 
-from pages.locators import Locators
+from pages.locators_page import Locators
 
 
 class AutomTestPracticePage(Locators):
