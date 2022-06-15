@@ -124,5 +124,3 @@ run pipenv install pytest-xdist  -  for run in parallel
     terminal write the line below and press enter:
                                     git clone https://github.com/aura80/selenium_tema_5_adjusted.git
     After that you can open it from Pycharm.
- 
-
