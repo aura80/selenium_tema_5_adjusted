@@ -41,7 +41,7 @@ class DemoSlider:
         print("Initial position of the right slider: ", slider_right.location)
 
         actions = ActionChains(self.browser)
-        actions.drag_and_drop_by_offset(slider_left, 80, 0).perform()
+        actions.drag_and_drop_by_offset(slider_left, 50, 0).perform()
         time.sleep(2)
         actions.drag_and_drop_by_offset(slider_right, -75, 0).perform()
 
