@@ -34,7 +34,7 @@ class amazon(emag):
 
         self.browser.find_element(*self.AMAZON_SEARCH).send_keys("pet")
 
-        timp = WebDriverWait(self.browser, 10, ignored_exceptions=[NoSuchElementException, ElementNotVisibleException, ElementNotSelectableException, Exception])
+        timp = WebDriverWait(self.browser, 20, ignored_exceptions=[NoSuchElementException, ElementNotVisibleException, ElementNotSelectableException, Exception])
         timp.until(EC.presence_of_element_located(self.AMAZON_CLICK)).click()
 
         self.browser.forward()
